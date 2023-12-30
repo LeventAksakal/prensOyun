@@ -9,22 +9,10 @@ const { v4: uuidv4 } = require("uuid");
 const cookie = require("cookie");
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "http://127.0.0.1:5173",
-    methods: ["GET", "POST"],
-    credentials: true,
-    exposedHeaders: ["set-cookie"],
-  },
-});
+const io = new Server(server);
+
 app.use(cookieParser());
-app.use(
-  cors({
-    origin: "http://127.0.0.1:5173",
-    methods: ["GET", "POST"],
-    credentials: true,
-  })
-);
+
 app.use(async (req, res, next) => {
   if (req.path.startsWith("/assets/")) {
     return next();
@@ -50,6 +38,10 @@ app.use(async (req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, "../client/dist")));
 
+app.get("/games", (req, res) => {
+  res.json({ games: Object.values(games) });
+});
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../client/dist/index.html"));
 });
@@ -67,13 +59,14 @@ io.use((socket, next) => {
   }
 });
 
+let games = {};
 const activePlayers = {};
 
 io.on("connection", (socket) => {
-  activePlayers[socket.userId] = socket.userId;
+  activePlayers[socket.id] = socket.userId;
   io.emit("active-players", activePlayers);
   socket.on("disconnect", () => {
-    delete activePlayers[socket.userId];
+    delete activePlayers[socket.id];
     io.emit("active-players", activePlayers);
   });
   socket.on("ping", (time) => {
@@ -84,7 +77,23 @@ io.on("connection", (socket) => {
       nickname = "Anonymous";
     }
     const gameId = uuidv4();
-    io.emit("redirect", gameId);
+    games[socket.userId] = gameId;
+    socket.emit("redirect", gameId);
+  });
+  socket.on("game-end", () => {
+    delete games[socket.userId];
+  });
+  socket.on("left-update", (data) => {
+    io.emit("left-update", data);
+    console.log(data);
+  });
+  socket.on("right-update", (data) => {
+    io.emit("right-update", data);
+    console.log(data);
+  });
+  socket.on("ball-update", (data) => {
+    io("ball-update", data);
+    console.log(data);
   });
 });
 

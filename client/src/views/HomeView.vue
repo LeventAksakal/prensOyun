@@ -9,6 +9,7 @@
       <div class="game-mode" @click="play('pong-request')">Pong</div>
       <div class="game-mode" @click="play('battleship-request')">Battleship</div>
     </div>
+
     <div class="active-players">
       <h2>Active Players:</h2>
       <ul>
@@ -35,7 +36,6 @@ watch(
   }
 )
 const nickname = ref()
-
 function play(gameMode) {
   socket.emit(gameMode, { nickname: nickname.value })
 }
@@ -69,15 +69,15 @@ onMounted(() => {})
 }
 
 .active-players {
-  position: absolute; 
-  top: 0; 
-  left: 0; 
-  width: 200px; 
-  height: 200px; 
-  overflow: auto; 
-  border: 1px solid #000; 
-  padding: 10px; 
-  background-color: #fff; 
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200px;
+  height: 200px;
+  overflow: auto;
+  border: 1px solid #000;
+  padding: 10px;
+  background-color: #fff;
 }
 
 .active-players ul {
