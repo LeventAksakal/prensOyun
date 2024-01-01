@@ -23,12 +23,11 @@ const router = createRouter({
           if (exists) {
             next()
           } else {
-            console.log('Game does not exist')
-            next({ name: 'home' }) // redirect to home page if the game does not exist
+            next({ name: 'home' })
           }
         } catch (error) {
           console.error(error)
-          next({ name: 'home' }) // redirect to home page if there is an error
+          next({ name: 'home' })
         }
       }
     }

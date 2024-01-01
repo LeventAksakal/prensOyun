@@ -1,27 +1,41 @@
 <template>
-  <div ref="gameContainer"></div>
+  <div class="game-container">
+    <div class="scoreboard">
+      <p class="score">{{ state.pong.hostScore }}</p>
+      <p class="timer">{{ state.pong.timer }}</p>
+      <p class="score">{{ state.pong.guestScore }}</p>
+    </div>
+    <div ref="gameContainer"></div>
+    <button @click="endGame()">End</button>
+  </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, watch, onUnmounted, computed } from 'vue'
 import { state, socket } from '../socket.js'
+const roomId = window.location.pathname.split('/')[1]
+socket.emit('join-room', roomId)
 const gameContainer = ref(null)
+const timer = computed(() => state.pong.timer)
 let animationFrameId = null
-const leftPaddleDestination = computed(() => (state.pong.isHost ? state.pong.left : { x: 0, y: 0 }))
-const rightPaddleDestination = computed(() =>
-  state.pong.isHost ? { x: 0, y: 0 } : state.pong.right
-)
-const ballPosition = computed(() => (state.pong.isHost ? game.ball.position : state.pong.ball))
+function endGame() {
+  socket.emit('game-end', roomId)
+}
+
+const leftPaddleDestination = reactive({ x: 0, y: 0 })
+const rightPaddleDestination = reactive({ x: 0, y: 0 })
+const ballPosition = reactive({ x: 0, y: 0 })
+
 const game = reactive({
-  timer: 0,
-  scoreLimit: 0,
+  timer: 120,
+  scoreLimit: 5,
   c: null,
   width: 0,
   height: 0,
   score: 0,
   timeRemaining: 0,
   left: {
-    destination: leftPaddleDestination.value,
+    destination: { x: 0, y: 0 },
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 0 },
     size: { width: 20, height: 110 },
@@ -35,7 +49,7 @@ const game = reactive({
   },
 
   right: {
-    destination: rightPaddleDestination.value,
+    destination: { x: 0, y: 0 },
     position: { x: 0, y: 0 },
     velocity: { x: 0, y: 0 },
     size: { width: 20, height: 110 },
@@ -76,8 +90,8 @@ const initializeGame = () => {
   game.left.position.y = game.height / 2
   game.right.position.x = game.width - game.right.size.width
   game.right.position.y = game.height / 2
-  game.ball.position.x = game.width / 2
-  game.ball.position.y = game.height / 2
+  ballPosition.x = game.width / 2
+  ballPosition.y = game.height / 2
 
   game.left.border.right = game.width / 10
   game.left.border.bottom = game.height
@@ -87,32 +101,47 @@ const initializeGame = () => {
   game.ball.border.right = game.width
   game.ball.border.bottom = game.height
 }
-
+function mouseMove(event) {
+  if (state.pong.isHost) {
+    leftPaddleDestination.x = event.clientX
+    leftPaddleDestination.y = event.clientY
+  } else if (state.pong.isGuest) {
+    rightPaddleDestination.x = event.clientX
+    rightPaddleDestination.y = event.clientY
+  }
+}
 onMounted(() => {
   initializeGame()
-  window.addEventListener('mousemove', (event) => {
-    leftPaddleDestination.value.x = event.clientX
-    leftPaddleDestination.value.y = event.clientY
-  })
+  window.addEventListener('mousemove', mouseMove)
   game.animate()
+})
+watch(state.pong.left, (newLeft) => {
+  game.left.destination = newLeft
+})
+watch(state.pong.right, (newRight) => {
+  game.right.destination = newRight
+})
+watch(state.pong.ball, (newBall) => {
+  game.ball.position = newBall
 })
 watch(leftPaddleDestination, (newDestination) => {
   game.left.destination = newDestination
-  if (state.pong.isHost) socket.emit('left-update', { left: newDestination })
+  socket.emit('left-update', { x: newDestination.x, y: newDestination.y })
 })
 watch(rightPaddleDestination, (newDestination) => {
   game.right.destination = newDestination
-  console.log('right', newDestination)
-  if (!state.pong.isHost) socket.emit('right-update', { right: newDestination })
+  socket.emit('right-update', { x: newDestination.x, y: newDestination.y })
 })
 watch(ballPosition, (newPosition) => {
   game.ball.position = newPosition
-  if (state.pong.isHost) socket.emit('ball-update', { ball: newPosition })
+  socket.emit('ball-update', { x: newPosition.x, y: newPosition.y })
 })
 game.update = function () {
   this.updatePaddle(this.left)
   this.updatePaddle(this.right)
-  this.updateBall(this.ball, [this.left, this.right])
+  if (state.pong.isHost) {
+    this.updateBall(this.ball, [this.left, this.right])
+  }
 }
 game.draw = function () {
   this.c.clearRect(0, 0, this.width, this.height)
@@ -209,24 +238,29 @@ game.updateBall = function (ball, paddles) {
     }
   }
 
-  if (
-    (ball.position.x >= ball.border.right - ball.radius && ball.velocity.x > 0) ||
-    (ball.position.x <= ball.border.left + ball.radius && ball.velocity.x < 0)
-  ) {
-    ball.position.x = game.width / 2
+  if (ballPosition.x >= ball.border.right - ball.radius && ball.velocity.x > 0) {
+    ballPosition.x = game.width / 2
+    ballPosition.y = game.height / 2
+    ball.velocity.x = -2
+    ball.velocity.y = 0
+    socket.emit('score-update', roomId, "hostScore")
+  } else if (ballPosition.x <= ball.border.left + ball.radius && ball.velocity.x < 0) {
+    ballPosition.x = game.width / 2
+    ballPosition.y = game.height / 2
     ball.velocity.x = 2
     ball.velocity.y = 0
+    socket.emit('score-update', roomId, "guestScore")
   } else {
-    ball.position.x += ball.velocity.x
+    ballPosition.x += ball.velocity.x
   }
 
   if (
-    (ball.position.y >= ball.border.bottom - ball.radius && ball.velocity.y > 0) ||
-    (ball.position.y <= ball.border.top + ball.radius && ball.velocity.y < 0)
+    (ballPosition.y >= ball.border.bottom - ball.radius && ball.velocity.y > 0) ||
+    (ballPosition.y <= ball.border.top + ball.radius && ball.velocity.y < 0)
   ) {
     ball.velocity.y *= -1
   } else {
-    ball.position.y += ball.velocity.y
+    ballPosition.y += ball.velocity.y
   }
 }
 game.animate = function () {
@@ -237,6 +271,28 @@ game.animate = function () {
 
 onUnmounted(() => {
   window.cancelAnimationFrame(animationFrameId)
-  window.removeEventListener('mousemove')
+  window.removeEventListener('mousemove', mouseMove)
 })
 </script>
+<style scoped>
+.game-container {
+  position: relative;
+}
+
+.timer,
+.score {
+  font-size: 2em;
+  font-weight: bold;
+  color: #000;
+}
+.scoreboard {
+  display: flex;
+  justify-content: space-between;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  padding: 0 1em;
+}
+</style>

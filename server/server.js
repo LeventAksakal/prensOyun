@@ -39,7 +39,7 @@ app.use(async (req, res, next) => {
 app.use(express.static(path.join(__dirname, "../client/dist")));
 
 app.get("/games", (req, res) => {
-  res.json({ games: Object.values(games) });
+  res.json({ games: Object.keys(games) });
 });
 
 app.get("*", (req, res) => {
@@ -59,124 +59,134 @@ io.use((socket, next) => {
   }
 });
 
-let games = {};
+const games = {};
 const activePlayers = {};
-const queueOfPong = [];
-const queueOfBattleship = [];
+const pongQueue = [];
+const battleshipQueue = [];
 
 io.on("connection", (socket) => {
-  activePlayers[socket.id] = socket.userId;
+  activePlayers[socket.userId] = socket.id;
   io.emit("active-players", activePlayers);
 
   socket.on("disconnect", () => {
-    // for debug
-    console.log(`${socket.id} disconnected`);
-    delete activePlayers[socket.id];
-
-    const indexInQueuePong = queueOfPong.findIndex(
-      (item) => item.id === socket.id
-    );
-
-    if (indexInQueuePong !== -1) {
-      queueOfPong.splice(indexInQueuePong, 1);
+    delete activePlayers[socket.userId];
+    let i = pongQueue.indexOf(socket);
+    if (i > -1) {
+      pongQueue.splice(i, 1);
     }
-
+    let j = battleshipQueue.indexOf(socket);
+    if (j > -1) {
+      battleshipQueue.splice(j, 1);
+    }
     io.emit("active-players", activePlayers);
   });
 
-  socket.on("ping", (time) => {
-    socket.emit("pong", time);
-  });
-
   socket.on("pong-request", ({ nickname }) => {
-    // for debug
-    console.log(
-      `${socket.id} requested pong with nickname: ${nickname || "Anonymous"}`
-    );
-
+    if (pongQueue.includes(socket)) {
+      return;
+    }
+    let i = battleshipQueue.indexOf(socket);
+    if (i > -1) {
+      battleshipQueue.splice(i, 1);
+    }
     if (!nickname) {
       nickname = "Anonymous";
     }
-
-    const isInQueueP = queueOfPong.some((item) => item.id === socket.id);
-    const isInQueueBS = queueOfBattleship.some((item) => item.id === socket.id);
-
-    if (!isInQueueP && !isInQueueBS) {
-      queueOfPong.push(socket);
-
-      if (queueOfPong.length >= 2) {
-        const player1 = queueOfPong.shift();
-        const player2 = queueOfPong.shift();
-
-        const roomId = uuidv4();
-        // matched
-        player1.join(roomId);
-        player2.join(roomId);
-        // for debug
-        console.log(`${socket.id} joined room ${roomId}`);
-        
-        io.to(roomId).emit("redirect", roomId);
-        // for debug
-        console.log(
-          `Players matched. Room ID: ${roomId}, Player 1: ${player1}, Player 2: ${player2}`
-        );
-      } else {
-        io.to(socket.id).emit("waiting-in-queue");
-        // for debug
-        console.log(`${socket.id} is waiting for matching...`);
-      }
+    socket.nickname = nickname;
+    if (!pongQueue.length) {
+      pongQueue.push(socket);
     } else {
-      io.to(socket.id).emit("already-in-queue");
-      console.log("Already in the queue...");
+      const opponent = pongQueue.shift();
+      const roomId = uuidv4();
+      games[roomId] = {
+        host: socket.userId,
+        guest: opponent.userId,
+        hostScore: 0,
+        guestScore: 0,
+        hostNickname: nickname,
+        guestNickname: opponent.nickname,
+        scoreLimit: 5,
+        timeRemaining: 120,
+      };
+      games[roomId].interval = setInterval(() => {
+        games[roomId].timeRemaining--;
+        if (games[roomId].timeRemaining <= 0) {
+          clearInterval(games[roomId].interval);
+          io.to(roomId).emit("game-end");
+          delete games[roomId];
+          return;
+        }
+        io.to(roomId).emit("pong-timer", games[roomId].timeRemaining);
+      }, 1000);
+      socket.join(roomId);
+      opponent.join(roomId);
+      io.to(roomId).emit("redirect", roomId);
     }
   });
 
   socket.on("battleship-request", ({ nickname }) => {
+    if (battleshipQueue.includes(socket)) {
+      return;
+    }
+    let i = pongQueue.indexOf(socket);
+    if (i > -1) {
+      pongQueue.splice(i, 1);
+    }
     if (!nickname) {
       nickname = "Anonymous";
     }
-
-    const isInQueueP = queueOfPong.some((item) => item.id === socket.id);
-    const isInQueueBS = queueOfBattleship.some((item) => item.id === socket.id);
-
-    if (!isInQueueP && !isInQueueBS) {
-      queueOfBattleship.push(socket);
-
-      if (queueOfBattleship.length >= 2) {
-        const player1 = queueOfBattleship.shift();
-        const player2 = queueOfBattleship.shift();
-
-        const roomId = uuidv4();
-
-        player1.join(roomId);
-        player2.join(roomId);
-
-        io.to(player1.id).emit("redirect", roomId);
-        io.to(player2.id).emit("redirect", roomId);
-      } else {
-        io.to(socket.id).emit("waiting-in-queue");
-      }
+    if (!battleshipQueue.length) {
+      battleshipQueue.push(socket);
     } else {
-      io.to(socket.io).emit("already-in-queue");
+      const opponent = battleshipQueue.shift();
+      const roomId = uuidv4();
+      games[roomId] = { host: socket.userId, guest: opponent.userId };
+      socket.join(roomId);
+      opponent.join(roomId);
+      io.to(roomId).emit("redirect", roomId);
     }
-    const gameId = uuidv4();
-    games[socket.userId] = gameId;
-    socket.emit("redirect", gameId);
   });
-  socket.on("game-end", () => {
-    delete games[socket.userId];
+  socket.on("join-room", (roomId) => {
+    let host = activePlayers[games[roomId].host];
+    let guest = activePlayers[games[roomId].guest];
+    if (host === socket.id) {
+      socket.emit("host");
+    } else if (guest === socket.id) {
+      socket.emit("guest");
+    }
+    socket.join(roomId);
   });
   socket.on("left-update", (data) => {
-    io.emit("left-update", data);
-    console.log(data);
+    socket.rooms.forEach((room) => {
+      if (room !== socket.id) {
+        socket.to(room).emit("left-update", data);
+      }
+    });
   });
   socket.on("right-update", (data) => {
-    io.emit("right-update", data);
-    console.log(data);
+    socket.rooms.forEach((room) => {
+      if (room !== socket.id) {
+        socket.to(room).emit("right-update", data);
+      }
+    });
+    socket.emit("right-update", data);
   });
   socket.on("ball-update", (data) => {
-    io("ball-update", data);
-    console.log(data);
+    socket.rooms.forEach((room) => {
+      if (room !== socket.id) {
+        socket.to(room).emit("ball-update", data);
+      }
+    });
+  });
+  socket.on("score-update", (roomId, scorer) => {
+    if (!games[roomId]) return;
+    games[roomId][scorer]++;
+    io.to(roomId).emit("score", scorer);
+    if (games[roomId][scorer] >= games[roomId].scoreLimit) {
+      clearInterval(games[roomId].interval);
+      io.to(roomId).emit("game-end");
+      delete games[roomId];
+    }
   });
 });
 
