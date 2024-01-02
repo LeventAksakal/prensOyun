@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import { io } from 'socket.io-client'
 import router from './router/index.js'
+
 export const state = reactive({
   activePlayers: {},
   pong: {
@@ -11,16 +12,30 @@ export const state = reactive({
     isHost: false,
     isGuest: false,
     hostScore: 0,
-    guestScore: 0
+    guestScore: 0,
+    hostNickname: null,
+    guestNickname: null,
+    gameEnd: false
   },
   redirectRoute: null
 })
 
-const url = 'http://localhost:3000'
+export const socket = io()
 
-export const socket = io(url)
-
-socket.on('redirect', (route) => {
+socket.on('game-start', (route) => {
+  state.pong = {
+    timer: 120,
+    ball: { x: 0, y: 0 },
+    left: { x: 0, y: 0 },
+    right: { x: 0, y: 0 },
+    isHost: false,
+    isGuest: false,
+    hostScore: 0,
+    guestScore: 0,
+    hostNickname: null,
+    guestNickname: null,
+    gameEnd: false
+  }
   state.redirectRoute = route
 })
 socket.on('host', () => {
@@ -45,11 +60,20 @@ socket.on('ball-update', ({ x, y }) => {
   state.pong.ball.y = y
 })
 socket.on('game-end', () => {
-  router.push({ name: 'home' })
+  state.pong.isHost = false
+  state.pong.isGuest = false
+  state.pong.gameEnd = true
 })
 socket.on('pong-timer', (timer) => {
   state.pong.timer = timer
 })
 socket.on('score', (scorer) => {
   state.pong[scorer]++
+})
+socket.on('pong-data', (data) => {
+  state.pong.hostScore = data.hostScore
+  state.pong.guestScore = data.guestScore
+  state.pong.timer = data.timeRemaining
+  state.pong.hostNickname = data.hostNickname
+  state.pong.guestNickname = data.guestNickname
 })

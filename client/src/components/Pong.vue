@@ -1,31 +1,42 @@
 <template>
   <div class="game-container">
     <div class="scoreboard">
-      <p class="score">{{ state.pong.hostScore }}</p>
+      <p class="score">{{ state.pong.hostNickname }}:{{ state.pong.hostScore }}</p>
       <p class="timer">{{ state.pong.timer }}</p>
-      <p class="score">{{ state.pong.guestScore }}</p>
+      <p class="score">{{ state.pong.guestNickname }}:{{ state.pong.guestScore }}</p>
     </div>
     <div ref="gameContainer"></div>
-    <button @click="endGame()">End</button>
+    <div v-if="state.pong.gameEnd" class="game-end">
+      <h2>{{ winner }} is the winner!</h2>
+      <p><button @click="goHome">Return to Home Page</button></p>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, watch, onUnmounted, computed } from 'vue'
 import { state, socket } from '../socket.js'
+import  router  from '../router/index.js'
 const roomId = window.location.pathname.split('/')[1]
 socket.emit('join-room', roomId)
 const gameContainer = ref(null)
 const timer = computed(() => state.pong.timer)
 let animationFrameId = null
-function endGame() {
-  socket.emit('game-end', roomId)
+const reloadPage = () => {
+  window.location.reload()
 }
+const winner = computed(() => {
+  return state.pong.hostScore > state.pong.guestScore
+    ? state.pong.hostNickname
+    : state.pong.guestNickname
+})
 
 const leftPaddleDestination = reactive({ x: 0, y: 0 })
 const rightPaddleDestination = reactive({ x: 0, y: 0 })
 const ballPosition = reactive({ x: 0, y: 0 })
-
+const goHome = () => {
+  router.push('/')
+}
 const game = reactive({
   timer: 120,
   scoreLimit: 5,
@@ -80,7 +91,7 @@ const game = reactive({
 const initializeGame = () => {
   const canvas = document.createElement('canvas')
   gameContainer.value.appendChild(canvas)
-  canvas.width = window.innerWidth
+  canvas.width = window.innerWidth  
   canvas.height = window.innerHeight
   game.c = canvas.getContext('2d')
   game.width = canvas.width
@@ -113,6 +124,7 @@ function mouseMove(event) {
 onMounted(() => {
   initializeGame()
   window.addEventListener('mousemove', mouseMove)
+  window.addEventListener('resize', reloadPage);
   game.animate()
 })
 watch(state.pong.left, (newLeft) => {
@@ -243,13 +255,13 @@ game.updateBall = function (ball, paddles) {
     ballPosition.y = game.height / 2
     ball.velocity.x = -2
     ball.velocity.y = 0
-    socket.emit('score-update', roomId, "hostScore")
+    socket.emit('score-update', roomId, 'hostScore')
   } else if (ballPosition.x <= ball.border.left + ball.radius && ball.velocity.x < 0) {
     ballPosition.x = game.width / 2
     ballPosition.y = game.height / 2
     ball.velocity.x = 2
     ball.velocity.y = 0
-    socket.emit('score-update', roomId, "guestScore")
+    socket.emit('score-update', roomId, 'guestScore')
   } else {
     ballPosition.x += ball.velocity.x
   }
@@ -276,7 +288,10 @@ onUnmounted(() => {
 </script>
 <style scoped>
 .game-container {
-  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 
 .timer,
@@ -284,6 +299,15 @@ onUnmounted(() => {
   font-size: 2em;
   font-weight: bold;
   color: #000;
+}
+.game-end {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 20px;
+  text-align: center;
 }
 .scoreboard {
   display: flex;

@@ -8,6 +8,7 @@ const { generateToken, verifyToken } = require("./util/cookieHandler");
 const { v4: uuidv4 } = require("uuid");
 const cookie = require("cookie");
 const app = express();
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -39,7 +40,7 @@ app.use(async (req, res, next) => {
 app.use(express.static(path.join(__dirname, "../client/dist")));
 
 app.get("/games", (req, res) => {
-  res.json({ games: Object.keys(games) });
+  res.json({ games: Object.keys(pongGames) });
 });
 
 app.get("*", (req, res) => {
@@ -59,7 +60,7 @@ io.use((socket, next) => {
   }
 });
 
-const games = {};
+const pongGames = {};
 const activePlayers = {};
 const pongQueue = [];
 const battleshipQueue = [];
@@ -98,7 +99,7 @@ io.on("connection", (socket) => {
     } else {
       const opponent = pongQueue.shift();
       const roomId = uuidv4();
-      games[roomId] = {
+      pongGames[roomId] = {
         host: socket.userId,
         guest: opponent.userId,
         hostScore: 0,
@@ -108,19 +109,19 @@ io.on("connection", (socket) => {
         scoreLimit: 5,
         timeRemaining: 120,
       };
-      games[roomId].interval = setInterval(() => {
-        games[roomId].timeRemaining--;
-        if (games[roomId].timeRemaining <= 0) {
-          clearInterval(games[roomId].interval);
+      pongGames[roomId].interval = setInterval(() => {
+        pongGames[roomId].timeRemaining--;
+        if (pongGames[roomId].timeRemaining <= 0) {
+          clearInterval(pongGames[roomId].interval);
           io.to(roomId).emit("game-end");
-          delete games[roomId];
+          delete pongGames[roomId];
           return;
         }
-        io.to(roomId).emit("pong-timer", games[roomId].timeRemaining);
+        io.to(roomId).emit("pong-timer", pongGames[roomId].timeRemaining);
       }, 1000);
       socket.join(roomId);
       opponent.join(roomId);
-      io.to(roomId).emit("redirect", roomId);
+      io.to(roomId).emit("game-start", roomId);
     }
   });
 
@@ -140,20 +141,32 @@ io.on("connection", (socket) => {
     } else {
       const opponent = battleshipQueue.shift();
       const roomId = uuidv4();
-      games[roomId] = { host: socket.userId, guest: opponent.userId };
+      pongGames[roomId] = { host: socket.userId, guest: opponent.userId };
       socket.join(roomId);
       opponent.join(roomId);
       io.to(roomId).emit("redirect", roomId);
     }
   });
   socket.on("join-room", (roomId) => {
-    let host = activePlayers[games[roomId].host];
-    let guest = activePlayers[games[roomId].guest];
+    if (!pongGames[roomId]) {
+      return;
+    }
+    let host = activePlayers[pongGames[roomId].host];
+    let guest = activePlayers[pongGames[roomId].guest];
     if (host === socket.id) {
       socket.emit("host");
     } else if (guest === socket.id) {
       socket.emit("guest");
     }
+    let pongData = {
+      hostScore: pongGames[roomId].hostScore,
+      guestScore: pongGames[roomId].guestScore,
+      timeRemaining: pongGames[roomId].timer,
+      hostNickname: pongGames[roomId].hostNickname,
+      guestNickname: pongGames[roomId].guestNickname,
+    };
+
+    socket.emit("pong-data", pongData);
     socket.join(roomId);
   });
   socket.on("left-update", (data) => {
@@ -179,17 +192,18 @@ io.on("connection", (socket) => {
     });
   });
   socket.on("score-update", (roomId, scorer) => {
-    if (!games[roomId]) return;
-    games[roomId][scorer]++;
+    if (!pongGames[roomId]) return;
+    pongGames[roomId][scorer]++;
     io.to(roomId).emit("score", scorer);
-    if (games[roomId][scorer] >= games[roomId].scoreLimit) {
-      clearInterval(games[roomId].interval);
+    if (pongGames[roomId][scorer] >= pongGames[roomId].scoreLimit) {
+      clearInterval(pongGames[roomId].interval);
       io.to(roomId).emit("game-end");
-      delete games[roomId];
+      delete pongGames[roomId];
     }
   });
 });
 
-server.listen(3000, () => {
-  console.log("Running on http://localhost:3000");
+const port = process.env.PORT;
+server.listen(port, () => {
+  console.log(`Running on http://localhost:${port}`);
 });
