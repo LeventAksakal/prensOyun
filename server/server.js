@@ -136,12 +136,25 @@ io.on("connection", (socket) => {
     if (!nickname) {
       nickname = "Anonymous";
     }
+    socket.nickname = nickname;
     if (!battleshipQueue.length) {
       battleshipQueue.push(socket);
     } else {
       const opponent = battleshipQueue.shift();
       const roomId = uuidv4();
       pongGames[roomId] = { host: socket.userId, guest: opponent.userId };
+      games[roomId] = { 
+        host: socket.userId, 
+        guest: opponent.userId, 
+        hits: [],
+        hitsEnemy: [],
+
+        shipIndices: [],
+        shipIndicesEnemy: [],
+
+        hostNickname: nickname,
+        guestNickname: opponent.nickname,
+      };
       socket.join(roomId);
       opponent.join(roomId);
       io.to(roomId).emit("redirect", roomId);
@@ -200,6 +213,29 @@ io.on("connection", (socket) => {
       io.to(roomId).emit("game-end");
       delete pongGames[roomId];
     }
+  });
+  socket.on("hit-update", (roomId, array) => {//******************
+    if (!games[roomId]) return;
+
+    socket.to(roomId).emit("hit", array);
+  });
+  socket.on("hit-update-guest", (roomId, array) => {//******************
+    if (!games[roomId]) return;
+
+    socket.to(roomId).emit("hit-guest", array);
+  });
+  socket.on("ship-update", (roomId, array) => {//******************
+    if (!games[roomId]) return;
+    console.log(array,"host");
+
+    socket.to(roomId).emit("ship-indices", array);
+  });
+  socket.on("ship-update-guest", (roomId, array) => {//******************
+    if (!games[roomId]) return;
+
+    console.log(array,"guest");
+
+    socket.to(roomId).emit("ship-indices-guest", array);
   });
 });
 

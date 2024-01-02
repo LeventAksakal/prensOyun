@@ -17,6 +17,14 @@ export const state = reactive({
     guestNickname: null,
     gameEnd: false
   },
+  battleship: {
+    isHost: false,
+    isGuest: false,
+    shipIndices: reactive([]),
+    shipIndicesEnemy: reactive([]),
+    hits:[],
+    hitsEnemy:[]
+  },
   redirectRoute: null
 })
 
@@ -77,3 +85,24 @@ socket.on('pong-data', (data) => {
   state.pong.hostNickname = data.hostNickname
   state.pong.guestNickname = data.guestNickname
 })
+
+socket.on('hit', (hits) => {//************************
+  state.battleship.hits = hits
+  console.log(state.battleship.hits)
+}) 
+socket.on('hit-guest', (hitsEnemy) => {//************************
+  state.battleship.hitsEnemy = hitsEnemy
+  console.log(state.battleship.hitsEnemy)
+
+})
+socket.on('ship-indices', (shipIndices) => {//************************
+  state.battleship.shipIndices = shipIndices
+  console.log(state.battleship.shipIndices,"index")
+
+})
+socket.on('ship-indices-guest', (shipIndicesEnemy) => {//************************
+  state.battleship.shipIndicesEnemy= shipIndicesEnemy
+  console.log(state.battleship.shipIndicesEnemy,"Enemyindex")
+
+})
+

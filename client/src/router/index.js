@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import GameFrame from '../components/GameFrame.vue'
 import Pong from '../components/Pong.vue'
+import BattleShip from '../components/BattleShip.vue'
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,7 +16,7 @@ const router = createRouter({
     {
       path: '/:gameId',
       name: 'Pong',
-      component: Pong,
+      component: BattleShip,
       beforeEnter: async (to, from, next) => {
         try {
           const response = await fetch(`/games`)
