@@ -215,6 +215,12 @@ io.on("connection", (socket) => {
       delete pongGames[roomId];
     }
   });
+  socket.on("game-end", (roomId) => {
+    if (!pongGames[roomId]) return;
+    clearInterval(pongGames[roomId].interval);
+    delete pongGames[roomId];
+    socket.emit("game-end");
+  });
   socket.on("hit-update", (roomId, array) => {
     //******************
     if (!pongGames[roomId]) return;
@@ -230,7 +236,6 @@ io.on("connection", (socket) => {
   socket.on("ship-update", (roomId, array) => {
     //******************
     if (!pongGames[roomId]) return;
-    console.log(array, "host");
 
     socket.to(roomId).emit("ship-indices", array);
   });

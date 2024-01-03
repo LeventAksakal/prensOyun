@@ -15,7 +15,6 @@ const props = defineProps({
     required: true
   }
 })
-console.log(props.gameType)
 const gameComponent = computed(() => {
   if (props.gameType === 'pong') {
     return Pong
