@@ -100,7 +100,15 @@
     >
       <h1 class="h1">Your Opponent's Turn To Shoot!</h1>
     </div>
-    <div v-if="state.battleship.score == 17 || state.battleship.score == 17" class="endOverlay">
+    <div
+    v-if="
+      (state.pong.isHost && state.battleship.confirm) 
+    "
+    class="turnOverlay"
+  >
+    <h1 class="h1">Wating Your Opponent's Ships</h1>
+  </div>
+    <div v-if="state.battleship.score == 17 || state.battleship.scoreEnemy == 17" class="endOverlay">
       <h1 v-if="state.battleship.score == 17" class="h1">Host Wins the Game!!!</h1>
       <h1 v-if="state.battleship.scoreEnemy == 17" class="h1">Guest Wins the Game!!!</h1>
       <button @click="endGame()" class="h1" style="z-index: 12">RETURN</button>
@@ -435,6 +443,7 @@ function confirm() {
     }
     if (state.pong.isGuest) {
       socket.emit('ship-update-guest', roomId, game.shipIndicesEnemy)
+      socket.emit('confirm', roomId)
     }
   }
 }

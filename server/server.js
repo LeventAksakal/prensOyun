@@ -269,6 +269,12 @@ io.on("connection", (socket) => {
 
     io.to(roomId).emit("guest-score");
   });
+  socket.on("confirm", (roomId) => {
+    //******************
+    if (!pongGames[roomId]) return;
+
+    socket.to(roomId).emit("guest-confirm");
+  });
 });
 
 const port = process.env.PORT;

@@ -56,7 +56,8 @@ socket.on('game-start', (route, prop) => {
     shipIndices: reactive([]),
     shipIndicesEnemy: reactive([]),
     hits: reactive([]),
-    hitsEnemy: reactive([])
+    hitsEnemy: reactive([]),
+    confirm: reactive([true])
   }
   if (prop === 'pong') {
     router.push({ name: 'Pong', params: { gameId: route } })
@@ -127,4 +128,7 @@ socket.on('host-score', () => {
 })
 socket.on('guest-score', () => {
   state.battleship.scoreEnemy++
+})
+socket.on('guest-confirm', () => {
+  state.battleship.confirm = false
 })
