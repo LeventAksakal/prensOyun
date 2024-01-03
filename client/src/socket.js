@@ -20,10 +20,13 @@ export const state = reactive({
   battleship: {
     isHost: false,
     isGuest: false,
+    score: reactive([0]),
+    scoreEnemy: reactive([0]),
+    turn: reactive([true]),
     shipIndices: reactive([]),
     shipIndicesEnemy: reactive([]),
-    hits:[],
-    hitsEnemy:[]
+    hits:reactive([]),
+    hitsEnemy:reactive([])
   },
   redirectRoute: null
 })
@@ -86,23 +89,34 @@ socket.on('pong-data', (data) => {
   state.pong.guestNickname = data.guestNickname
 })
 
-socket.on('hit', (hits) => {//************************
+socket.on('hit', (hits) => {
   state.battleship.hits = hits
-  console.log(state.battleship.hits)
 }) 
-socket.on('hit-guest', (hitsEnemy) => {//************************
+socket.on('hit-guest', (hitsEnemy) => {
   state.battleship.hitsEnemy = hitsEnemy
-  console.log(state.battleship.hitsEnemy)
 
 })
-socket.on('ship-indices', (shipIndices) => {//************************
+socket.on('ship-indices', (shipIndices) => {
   state.battleship.shipIndices = shipIndices
-  console.log(state.battleship.shipIndices,"index")
 
 })
-socket.on('ship-indices-guest', (shipIndicesEnemy) => {//************************
+socket.on('ship-indices-guest', (shipIndicesEnemy) => {
   state.battleship.shipIndicesEnemy= shipIndicesEnemy
-  console.log(state.battleship.shipIndicesEnemy,"Enemyindex")
+
+})
+socket.on('pass', () => {
+  state.battleship.turn= false
+
+})
+socket.on('pass-guest', () => {
+  state.battleship.turn= true
+
+})
+socket.on('host-score', () => {
+  state.battleship.score++
+})
+socket.on('guest-score', () => {
+  state.battleship.scoreEnemy++
 
 })
 

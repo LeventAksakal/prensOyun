@@ -38,7 +38,13 @@
 
             </div>
         </div>
-
+        <div v-if="(state.pong.isHost && !state.battleship.turn) || (state.pong.isGuest && state.battleship.turn)" class="turnOverlay">
+            <h1 class="h1">Your Opponent's Turn To Shoot!</h1>
+        </div>
+        <div v-if="(state.battleship.score==17 || state.battleship.score==17)" class="endOverlay" >
+            <h1 v-if="(state.battleship.score==17)" class="h1">Host Wins the Game!!!</h1>
+            <h1 v-if="(state.battleship.scoreEnemy==17)" class="h1">Guest Wins the Game!!!</h1>
+        </div>
         <div class="grid-container">
             <h1>Player field:</h1>
             <div class="grid">
@@ -50,10 +56,14 @@
                         <div v-if="state.pong.isGuest && game.shipIndicesEnemy.includes(rowIndex * columns + colIndex)"
                             class="shipSegment"></div>
 
-                        <div v-if="state.pong.isHost && game.shipIndices.includes(rowIndex * columns + colIndex) && game.hitsEnemy.includes(rowIndex * columns + colIndex)"
+                        <div v-if="state.pong.isHost && game.shipIndices.includes(rowIndex * columns + colIndex) && state.battleship.hitsEnemy.includes(rowIndex * columns + colIndex)"
                             class="redCircle"></div>
-                        <div v-if="state.pong.isGuest && game.shipIndicesEnemy.includes(rowIndex * columns + colIndex) && game.hits.includes(rowIndex * columns + colIndex)"
+                        <div v-if="state.pong.isGuest && game.shipIndicesEnemy.includes(rowIndex * columns + colIndex) && state.battleship.hits.includes(rowIndex * columns + colIndex)"
                             class="redCircle"></div>
+                        <div v-if="state.pong.isHost  && !game.shipIndices.includes(rowIndex * columns + colIndex) && state.battleship.hitsEnemy.includes(rowIndex * columns + colIndex)"
+                            class="circle"></div>
+                        <div v-if="state.pong.isGuest && !game.shipIndicesEnemy.includes(rowIndex * columns + colIndex) && state.battleship.hits.includes(rowIndex * columns + colIndex)"
+                            class="circle"></div>
                     </div>
                 </div>
             </div>
@@ -66,19 +76,15 @@
                         @mouseleave="handleMouseLeave(rowIndex, colIndex)"
                         :style="{ backgroundColor: cellColorEnemy[rowIndex][colIndex] }">
 
-                        <div v-if="state.pong.isHost && redIndicesEnemy.includes(rowIndex * columns + colIndex) && !game.shipIndicesEnemy.includes(rowIndex * columns + colIndex)"
+                        <div v-if="state.pong.isHost && redIndicesEnemy.includes(rowIndex * columns + colIndex) && !state.battleship.shipIndicesEnemy.includes(rowIndex * columns + colIndex)"
                             class="circle"></div>
-                        <div v-if="state.pong.isHost && redIndicesEnemy.includes(rowIndex * columns + colIndex) && game.shipIndicesEnemy.includes(rowIndex * columns + colIndex)"
+                            
+                        <div v-if="state.pong.isHost && redIndicesEnemy.includes(rowIndex * columns + colIndex) && state.battleship.shipIndicesEnemy.includes(rowIndex * columns + colIndex)"
                             class="redCircle"></div>
 
-                        <div v-if="state.pong.isGuest && redIndicesEnemy.includes(rowIndex * columns + colIndex) && !game.shipIndices.includes(rowIndex * columns + colIndex)"
+                        <div v-if="state.pong.isGuest && redIndicesEnemy.includes(rowIndex * columns + colIndex) && !state.battleship.shipIndices.includes(rowIndex * columns + colIndex)"
                             class="circle"></div>
-                        <div v-if="state.pong.isGuest && redIndicesEnemy.includes(rowIndex * columns + colIndex) && game.shipIndices.includes(rowIndex * columns + colIndex)"
-                            class="redCircle"></div>
-
-                        <div v-if="state.pong.isHost && game.shipIndicesEnemy.includes(rowIndex * columns + colIndex)"
-                            class="redCircle"></div>
-                        <div v-if="state.pong.isGuest && game.shipIndices.includes(rowIndex * columns + colIndex)"
+                        <div v-if="state.pong.isGuest && redIndicesEnemy.includes(rowIndex * columns + colIndex) && state.battleship.shipIndices.includes(rowIndex * columns + colIndex)"
                             class="redCircle"></div>
 
                     </div>
@@ -114,6 +120,7 @@ const redIndices = ref([]);
 const redIndicesEnemy = ref([]);
 
 let showModal = ref(true);
+
 let isHorizonal = ref(true);
 
 const rotation = ref(90);
@@ -124,6 +131,8 @@ let render1 = ref(true);
 let render2 = ref(true);
 let render3 = ref(true);
 let render4 = ref(true);
+
+
 
 const game = reactive({
 
@@ -166,24 +175,37 @@ const createGridEnemy = () => {
 
 
 const handleCellClick = (rowIndex, colIndex) => {
-    // Handle cell click event here
+
     console.log(`Clicked on cell (${rowIndex}, ${colIndex}, ${id})`);
-    // Push the index of the clicked cell into redIndices array
+
     redIndices.value.push(rowIndex * columns + colIndex);
 };
-const handleCellClickEnemy = (rowIndex, colIndex) => { //AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+const handleCellClickEnemy = (rowIndex, colIndex) => { 
     console.log(`Clicked on cell (${rowIndex}, ${colIndex})`);
 
     redIndicesEnemy.value.push(rowIndex * columns + colIndex);
 
     if (state.pong.isHost) {
-        game.hits.push(rowIndex * columns + colIndex)
-        socket.emit('hit-update', roomId, game.hits)
-        console.log(game.shipIndicesEnemy , "guest board at host")
+        if(!game.hits.includes(rowIndex * columns + colIndex)){
+            game.hits.push(rowIndex * columns + colIndex)
+            socket.emit('hit-update', roomId, game.hits)
+            socket.emit('turn-pass', roomId)
+            if(state.battleship.shipIndicesEnemy.includes(rowIndex * columns + colIndex)){
+                socket.emit('score', roomId)
+            }
+
+            
+        }
     } if (state.pong.isGuest) {
-        game.hitsEnemy.push(rowIndex * columns + colIndex)
-        socket.emit('hit-update', roomId, game.hitsEnemy)
-        console.log(game.shipIndices , "Host board at guest")
+        if (!game.hitsEnemy.includes(rowIndex * columns + colIndex)) {
+            game.hitsEnemy.push(rowIndex * columns + colIndex)
+            socket.emit('hit-update-guest', roomId, game.hitsEnemy)
+            socket.emit('turn-pass-guest', roomId)
+            if(state.battleship.shipIndices.includes(rowIndex * columns + colIndex)){
+                socket.emit('score-guest', roomId)
+            }
+        }
+        
     }
 
 };
@@ -235,28 +257,25 @@ function dropShip(e) {
     const coll = startId % 10;
     const row = (startId - coll) / 10;
 
-    console.log(startId);
-    console.log(draggedShip.id);
     //horizontal
     if (isHorizonal && coll + size < 11) {
         for (let i = 0; i < size; i++) {
             let valueToCheck = parseInt(startId) + i;
-            console.log("H value to check: " + valueToCheck);
+            
             if (state.pong.isHost && game.shipIndices.includes(valueToCheck)) {
-                console.log("nope");
+                
                 return;
             } else if (state.pong.isGuest && game.shipIndicesEnemy.includes(valueToCheck)) {
-                console.log("nope");
+                
                 return;
             } else {
-                console.log("yes");
+                
             }
 
         }
         for (let i = 0; i < size; i++) {
             let valueToPush = parseInt(startId) + i;
-            console.log("H value to push: " + valueToPush);
-            // game.shipIndicesEnemy.push(valueToPush); //****************************************************************************************************
+           
             if (state.pong.isHost) {
                 game.shipIndices.push(valueToPush);
             } else if (state.pong.isGuest) {
@@ -275,7 +294,7 @@ function dropShip(e) {
             render4 = false
         }
 
-        //vertical
+    //vertical
     } else if (!isHorizonal && row + size < 11) {
         for (let i = 0; i < size; i++) {
             let valueToCheck = parseInt(startId) + i * 10;
@@ -289,7 +308,6 @@ function dropShip(e) {
         for (let i = 0; i < size; i++) {
             let valueToPush = parseInt(startId) + i * 10;
 
-            //game.shipIndicesEnemy.push(valueToPush) //*********************************************************************************************************
             if (state.pong.isHost) {
                 game.shipIndices.push(valueToPush);
             } else if (state.pong.isGuest) {
@@ -311,14 +329,16 @@ function dropShip(e) {
 
     }
 }
-function confirm() { //AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    showModal.value = false;
-    if (state.pong.isHost) {
-        socket.emit('ship-update', roomId, game.shipIndices)
-        console.log(game.shipIndices)
-    } if (state.pong.isGuest) {
-        socket.emit('ship-update-guest', roomId, game.shipIndicesEnemy)
-        console.log(game.shipIndicesEnemy)
+function confirm() { 
+    if(!render0 && !render1 && !render2 && !render3 && !render4){
+        showModal.value = false;
+        if (state.pong.isHost) {
+            socket.emit('ship-update', roomId, game.shipIndices)
+        
+        } if (state.pong.isGuest) {
+            socket.emit('ship-update-guest', roomId, game.shipIndicesEnemy)
+            
+        }
     }
 }
 
@@ -326,28 +346,26 @@ onMounted(() => {
     createGrid();
     createGridEnemy();
 });
-watch(state.battleship.hitsEnemy, (newHits) => {
+watch(state.battleship.hitsEnemy, (newHits,oldHits) => {
     game.hitsEnemy = newHits
 });
-watch(state.battleship.shipIndicesEnemy, (newShipIndicesEnemy) => {
+watch(state.battleship.shipIndicesEnemy, (newShipIndicesEnemy,oldHits) => {
     console.log(newShipIndicesEnemy,"OLD")
     console.log(game.shipIndicesEnemy,"OLD TEST")
     game.shipIndicesEnemy = newShipIndicesEnemy
     console.log(newShipIndicesEnemy,"NEW")
     console.log(game.shipIndicesEnemy,"NEW TEST")
 });
-watch(state.battleship.hits, (newHits) => {
+watch(state.battleship.hits, (newHits,oldHits) => {
     game.hits = newHits
 });
-watch(state.battleship.shipIndices, (newShipIndices) => {
-    console.log(newShipIndicesEnemy,"OLD")
+watch(state.battleship.shipIndices, (newShipIndices,oldHits) => {
+    console.log(newShipIndices,"OLD")
     console.log(game.shipIndicesEnemy,"OLD TEST")
     game.shipIndices = newShipIndices
     console.log(newShipIndices,"NEW")
     console.log(game.shipIndices,"TEST")
-
 });
-
 </script>
 
 <style scoped>
@@ -547,6 +565,36 @@ div {
     align-items: center;
     display: flex;
     justify-content: center;
+}
+.turnOverlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.2);
+    z-index: 9;
+    align-items: center;
+    display: flex;
+    justify-content: center;
+}
+.endOverlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.30);
+    z-index: 11;
+    align-items: center;
+    display: flex;
+    justify-content: center;
+}
+.h1{
+    width: 750px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;;
+    background-color: chocolate;
+    color: white;
+    border: 3px solid rgb(0, 0, 0)
 }
 
 .modal {

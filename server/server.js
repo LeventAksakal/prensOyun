@@ -142,10 +142,12 @@ io.on("connection", (socket) => {
     } else {
       const opponent = battleshipQueue.shift();
       const roomId = uuidv4();
-      pongGames[roomId] = { host: socket.userId, guest: opponent.userId };
-      games[roomId] = { 
+      pongGames[roomId] = { 
         host: socket.userId, 
         guest: opponent.userId, 
+
+        turn: true,
+
         hits: [],
         hitsEnemy: [],
 
@@ -215,27 +217,45 @@ io.on("connection", (socket) => {
     }
   });
   socket.on("hit-update", (roomId, array) => {//******************
-    if (!games[roomId]) return;
+    if (!pongGames[roomId]) return;
 
     socket.to(roomId).emit("hit", array);
   });
   socket.on("hit-update-guest", (roomId, array) => {//******************
-    if (!games[roomId]) return;
+    if (!pongGames[roomId]) return;
 
     socket.to(roomId).emit("hit-guest", array);
   });
   socket.on("ship-update", (roomId, array) => {//******************
-    if (!games[roomId]) return;
+    if (!pongGames[roomId]) return;
     console.log(array,"host");
 
     socket.to(roomId).emit("ship-indices", array);
   });
   socket.on("ship-update-guest", (roomId, array) => {//******************
-    if (!games[roomId]) return;
-
-    console.log(array,"guest");
+    if (!pongGames[roomId]) return;
 
     socket.to(roomId).emit("ship-indices-guest", array);
+  });
+  socket.on("turn-pass", (roomId) => {//******************
+    if (!pongGames[roomId]) return;
+
+    io.to(roomId).emit("pass");
+  });
+  socket.on("turn-pass-guest", (roomId) => {//******************
+    if (!pongGames[roomId]) return;
+
+    io.to(roomId).emit("pass-guest");
+  });
+  socket.on("score", (roomId) => {//******************
+    if (!pongGames[roomId]) return;
+
+    io.to(roomId).emit("host-score");
+  });
+  socket.on("score-guest", (roomId) => {//******************
+    if (!pongGames[roomId]) return;
+
+    io.to(roomId).emit("guest-score");
   });
 });
 
