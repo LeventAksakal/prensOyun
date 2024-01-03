@@ -25,15 +25,15 @@ export const state = reactive({
     turn: reactive([true]),
     shipIndices: reactive([]),
     shipIndicesEnemy: reactive([]),
-    hits:reactive([]),
-    hitsEnemy:reactive([])
+    hits: reactive([]),
+    hitsEnemy: reactive([])
   },
   redirectRoute: null
 })
 
 export const socket = io()
 
-socket.on('game-start', (route) => {
+socket.on('game-start', (route, prop) => {
   state.pong = {
     timer: 120,
     ball: { x: 0, y: 0 },
@@ -47,7 +47,22 @@ socket.on('game-start', (route) => {
     guestNickname: null,
     gameEnd: false
   }
-  state.redirectRoute = route
+  state.battleship = {
+    isHost: false,
+    isGuest: false,
+    score: reactive([0]),
+    scoreEnemy: reactive([0]),
+    turn: reactive([true]),
+    shipIndices: reactive([]),
+    shipIndicesEnemy: reactive([]),
+    hits: reactive([]),
+    hitsEnemy: reactive([])
+  }
+  if (prop === 'pong') {
+    router.push({ name: 'Pong', params: { gameId: route } })
+  } else if (prop === 'battleship') {
+    router.push({ name: 'Battleship', params: { gameId: route } })
+  }
 })
 socket.on('host', () => {
   state.pong.isHost = true
@@ -91,32 +106,25 @@ socket.on('pong-data', (data) => {
 
 socket.on('hit', (hits) => {
   state.battleship.hits = hits
-}) 
+})
 socket.on('hit-guest', (hitsEnemy) => {
   state.battleship.hitsEnemy = hitsEnemy
-
 })
 socket.on('ship-indices', (shipIndices) => {
   state.battleship.shipIndices = shipIndices
-
 })
 socket.on('ship-indices-guest', (shipIndicesEnemy) => {
-  state.battleship.shipIndicesEnemy= shipIndicesEnemy
-
+  state.battleship.shipIndicesEnemy = shipIndicesEnemy
 })
 socket.on('pass', () => {
-  state.battleship.turn= false
-
+  state.battleship.turn = false
 })
 socket.on('pass-guest', () => {
-  state.battleship.turn= true
-
+  state.battleship.turn = true
 })
 socket.on('host-score', () => {
   state.battleship.score++
 })
 socket.on('guest-score', () => {
   state.battleship.scoreEnemy++
-
 })
-

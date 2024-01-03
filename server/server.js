@@ -46,6 +46,7 @@ app.get("/games", (req, res) => {
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../client/dist/index.html"));
 });
+
 io.use((socket, next) => {
   if (socket.handshake.headers && socket.handshake.headers.cookie) {
     const cookies = cookie.parse(socket.handshake.headers.cookie);
@@ -81,7 +82,6 @@ io.on("connection", (socket) => {
     }
     io.emit("active-players", activePlayers);
   });
-
   socket.on("pong-request", ({ nickname }) => {
     if (pongQueue.includes(socket)) {
       return;
@@ -121,10 +121,9 @@ io.on("connection", (socket) => {
       }, 1000);
       socket.join(roomId);
       opponent.join(roomId);
-      io.to(roomId).emit("game-start", roomId);
+      io.to(roomId).emit("game-start", roomId, "pong");
     }
   });
-
   socket.on("battleship-request", ({ nickname }) => {
     if (battleshipQueue.includes(socket)) {
       return;
@@ -142,9 +141,9 @@ io.on("connection", (socket) => {
     } else {
       const opponent = battleshipQueue.shift();
       const roomId = uuidv4();
-      pongGames[roomId] = { 
-        host: socket.userId, 
-        guest: opponent.userId, 
+      pongGames[roomId] = {
+        host: socket.userId,
+        guest: opponent.userId,
 
         turn: true,
 
@@ -159,7 +158,7 @@ io.on("connection", (socket) => {
       };
       socket.join(roomId);
       opponent.join(roomId);
-      io.to(roomId).emit("redirect", roomId);
+      io.to(roomId).emit("game-start", roomId, "battleship");
     }
   });
   socket.on("join-room", (roomId) => {
@@ -216,43 +215,51 @@ io.on("connection", (socket) => {
       delete pongGames[roomId];
     }
   });
-  socket.on("hit-update", (roomId, array) => {//******************
+  socket.on("hit-update", (roomId, array) => {
+    //******************
     if (!pongGames[roomId]) return;
 
     socket.to(roomId).emit("hit", array);
   });
-  socket.on("hit-update-guest", (roomId, array) => {//******************
+  socket.on("hit-update-guest", (roomId, array) => {
+    //******************
     if (!pongGames[roomId]) return;
 
     socket.to(roomId).emit("hit-guest", array);
   });
-  socket.on("ship-update", (roomId, array) => {//******************
+  socket.on("ship-update", (roomId, array) => {
+    //******************
     if (!pongGames[roomId]) return;
-    console.log(array,"host");
+    console.log(array, "host");
 
     socket.to(roomId).emit("ship-indices", array);
   });
-  socket.on("ship-update-guest", (roomId, array) => {//******************
+  socket.on("ship-update-guest", (roomId, array) => {
+    //******************
     if (!pongGames[roomId]) return;
 
     socket.to(roomId).emit("ship-indices-guest", array);
   });
-  socket.on("turn-pass", (roomId) => {//******************
+  socket.on("turn-pass", (roomId) => {
+    //******************
     if (!pongGames[roomId]) return;
 
     io.to(roomId).emit("pass");
   });
-  socket.on("turn-pass-guest", (roomId) => {//******************
+  socket.on("turn-pass-guest", (roomId) => {
+    //******************
     if (!pongGames[roomId]) return;
 
     io.to(roomId).emit("pass-guest");
   });
-  socket.on("score", (roomId) => {//******************
+  socket.on("score", (roomId) => {
+    //******************
     if (!pongGames[roomId]) return;
 
     io.to(roomId).emit("host-score");
   });
-  socket.on("score-guest", (roomId) => {//******************
+  socket.on("score-guest", (roomId) => {
+    //******************
     if (!pongGames[roomId]) return;
 
     io.to(roomId).emit("guest-score");

@@ -17,7 +17,7 @@
 import { ref, reactive, onMounted, watch, onUnmounted, computed } from 'vue'
 import { state, socket } from '../socket.js'
 import  router  from '../router/index.js'
-const roomId = window.location.pathname.split('/')[1]
+const roomId = window.location.pathname.split('/')[2]
 socket.emit('join-room', roomId)
 const gameContainer = ref(null)
 const timer = computed(() => state.pong.timer)

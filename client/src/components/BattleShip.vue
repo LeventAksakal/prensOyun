@@ -101,7 +101,7 @@
 import { ref, reactive, onMounted, watch, onUnmounted, computed } from 'vue'
 import { state, socket } from '../socket.js'
 //*********************************************************************************************************************
-const roomId = window.location.pathname.split('/')[1]
+const roomId = window.location.pathname.split('/')[2]
 socket.emit('join-room', roomId)
 
 function endGame() {
